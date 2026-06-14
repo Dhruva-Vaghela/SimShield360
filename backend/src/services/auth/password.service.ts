@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import config from '../../config/environment.config';
+import { CONSTANTS } from '../../config/constants';
 import { ValidationError } from '../../middleware/error.middleware';
 
 // Constants
@@ -33,35 +33,35 @@ export const validatePasswordStrength = (password: string): {
   let score = 0;
 
   // Length check
-  if (password.length < config.PASSWORD.MIN_LENGTH) {
-    errors.push(`Password must be at least ${config.PASSWORD.MIN_LENGTH} characters`);
+  if (password.length < CONSTANTS.PASSWORD.MIN_LENGTH) {
+    errors.push(`Password must be at least ${CONSTANTS.PASSWORD.MIN_LENGTH} characters`);
   } else {
     score += 1;
   }
 
   // Uppercase check
-  if (config.PASSWORD.REQUIRE_UPPERCASE && !/[A-Z]/.test(password)) {
+  if (CONSTANTS.PASSWORD.REQUIRE_UPPERCASE && !/[A-Z]/.test(password)) {
     errors.push('Password must contain at least one uppercase letter');
   } else {
     score += 1;
   }
 
   // Lowercase check
-  if (config.PASSWORD.REQUIRE_LOWERCASE && !/[a-z]/.test(password)) {
+  if (CONSTANTS.PASSWORD.REQUIRE_LOWERCASE && !/[a-z]/.test(password)) {
     errors.push('Password must contain at least one lowercase letter');
   } else {
     score += 1;
   }
 
   // Digit check
-  if (config.PASSWORD.REQUIRE_DIGITS && !/[0-9]/.test(password)) {
+  if (CONSTANTS.PASSWORD.REQUIRE_DIGITS && !/[0-9]/.test(password)) {
     errors.push('Password must contain at least one digit');
   } else {
     score += 1;
   }
 
   // Symbol check (optional)
-  if (config.PASSWORD.REQUIRE_SYMBOLS && !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  if (CONSTANTS.PASSWORD.REQUIRE_SYMBOLS && !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>\/\?]/.test(password)) {
     errors.push('Password must contain at least one special character');
   } else {
     score += 1;

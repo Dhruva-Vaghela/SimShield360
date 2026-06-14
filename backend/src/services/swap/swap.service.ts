@@ -1,4 +1,4 @@
-import { SimSwapRequest } from '../../models/SimSwapRequest.model';
+import { SimSwapRequest, SwapRequestStatus } from '../../models/SimSwapRequest.model';
 import logger from '../../utils/logger.util';
 
 export interface CreateSwapRequestData {
@@ -308,7 +308,7 @@ export class SwapService {
    */
   async updateSwapRequestStatus(
     swapRequestId: string,
-    status: string
+    status: SwapRequestStatus
   ): Promise<SwapServiceResult> {
     try {
       const swapRequest = await SimSwapRequest.findById(swapRequestId);

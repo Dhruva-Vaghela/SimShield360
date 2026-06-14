@@ -1,4 +1,4 @@
-import { Schema, Document, model, Types } from 'mongoose';
+import { Schema, Document, model, Types, Model } from 'mongoose';
 
 // Types
 export interface IFaceProfile {
@@ -15,10 +15,22 @@ export interface IFaceProfile {
 }
 
 // Custom document interface
-export interface IFaceProfileDocument extends IFaceProfile, Document { _id: any; }
+export interface IFaceProfileDocument extends IFaceProfile, Document {
+  _id: any;
+  incrementVerificationCount(): Promise<void>;
+  updateConfidenceScore(score: number): Promise<void>;
+  deactivate(): Promise<void>;
+  activate(): Promise<void>;
+}
+
+export interface IFaceProfileModel extends Model<IFaceProfileDocument> {
+  getActiveProfile(userId: string): Promise<IFaceProfileDocument | null>;
+  getAllProfiles(userId: string): Promise<IFaceProfileDocument[]>;
+  upsertProfile(userId: string, faceEncodingData: string, confidenceScore?: number): Promise<IFaceProfileDocument>;
+}
 
 // FaceProfile Schema
-const faceProfileSchema = new Schema<IFaceProfileDocument>(
+const faceProfileSchema = new Schema<IFaceProfileDocument, IFaceProfileModel>(
   {
     userId: {
       type: Schema.Types.ObjectId,
@@ -141,4 +153,4 @@ faceProfileSchema.methods.activate = async function () {
 };
 
 // Export FaceProfile model
-export const FaceProfile = model<IFaceProfileDocument>('FaceProfile', faceProfileSchema);
+export const FaceProfile = model<IFaceProfileDocument, IFaceProfileModel>('FaceProfile', faceProfileSchema);

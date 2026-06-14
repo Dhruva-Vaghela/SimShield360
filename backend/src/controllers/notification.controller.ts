@@ -28,6 +28,7 @@ export const getNotifications = async (req: AuthenticateRequest, res: Response, 
       page: result.notifications ? (parseInt(page as string) || 1) : 1,
       limit: result.notifications ? (parseInt(limit as string) || 20) : 20,
       total: result.total || 0,
+      totalPages: result.total && parseInt(limit as string, 10) > 0 ? Math.ceil(result.total / parseInt(limit as string, 10)) : 0,
       unreadCount: result.unreadCount || 0,
     });
   } catch (error) {

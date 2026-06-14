@@ -1,4 +1,4 @@
-import { Schema, Document, model, Types } from 'mongoose';
+import { Schema, Document, model, Types, Model } from 'mongoose';
 
 // Types
 export type NotificationType =
@@ -31,8 +31,27 @@ export interface INotification {
 // Custom document interface
 export interface INotificationDocument extends INotification, Document { _id: any; }
 
+export interface INotificationModel extends Model<INotificationDocument> {
+  getUserNotifications?(userId: string, limit?: number, offset?: number, readStatus?: boolean): Promise<INotificationDocument[]>;
+  getUnreadCount?(userId: string): Promise<number>;
+  getUrgentUnreadNotifications?(userId: string): Promise<INotificationDocument[]>;
+  markAsRead?(notificationId: string): Promise<void>;
+  markAllAsRead?(userId: string): Promise<void>;
+  createNotification(data: {
+    userId: string;
+    type: NotificationType;
+    priority?: NotificationPriority;
+    title: string;
+    message: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<INotificationDocument>;
+  createSwapRequestNotification?(userId: string, requestId: string, status: string): Promise<INotificationDocument>;
+  createSimLockNotification?(userId: string, isLocked: boolean, iccid: string): Promise<INotificationDocument>;
+  createRiskAlertNotification?(userId: string, riskLevel: 'low' | 'medium' | 'high' | 'critical', requestId: string): Promise<INotificationDocument>;
+}
+
 // Notification Schema
-const notificationSchema = new Schema<INotificationDocument>(
+const notificationSchema = new Schema<INotificationDocument, INotificationModel>(
   {
     userId: {
       type: Schema.Types.ObjectId,
@@ -268,4 +287,4 @@ notificationSchema.methods.markAsRead = async function () {
 };
 
 // Export Notification model
-export const Notification = model<INotificationDocument>('Notification', notificationSchema);
+export const Notification = model<INotificationDocument, INotificationModel>('Notification', notificationSchema);

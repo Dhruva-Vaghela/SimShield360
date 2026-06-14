@@ -1,13 +1,13 @@
 import { SimSwapRequest } from '../../models/SimSwapRequest.model';
 import { SimLockService } from '../simlock/simlock.service';
-import { RiskScoringService } from '../risk/scoring.service';
+import { RiskScoringService, DecisionType } from '../risk/scoring.service';
 import { DecisionService } from '../risk/decision.service';
 import logger from '../../utils/logger.util';
 
 export interface WorkflowResult {
   success: boolean;
   status: string;
-  finalDecision: 'approved' | 'denied' | 'pending_review';
+  finalDecision: 'approved' | 'denied' | 'pending_review' | 'blocked';
   layerResults?: any[];
   riskScore?: number;
   errorMessage?: string;
@@ -145,7 +145,8 @@ export class WorkflowService {
       swapRequest.layerResults.push(layer7Result);
 
       // Update swap request with final decision
-      swapRequest.finalDecision = decisionResult.decision as any;
+      const finalDecision = decisionResult.decision === DecisionType.REJECTED ? 'denied' : decisionResult.decision;
+      swapRequest.finalDecision = finalDecision;
 
       if (decisionResult.decision === DecisionType.APPROVED) {
         swapRequest.status = 'approved';
@@ -170,7 +171,7 @@ export class WorkflowService {
       return {
         success: true,
         status: swapRequest.status,
-        finalDecision: decisionResult.decision,
+        finalDecision,
         layerResults: swapRequest.layerResults,
         riskScore: riskAssessment.riskScore,
       };

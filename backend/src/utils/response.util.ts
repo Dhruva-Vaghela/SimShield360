@@ -9,6 +9,7 @@ export class ResponseFormatter {
     limit: number;
     total: number;
     totalPages: number;
+    [key: string]: unknown;
   }): Response {
     const response: ApiResponse<T> = {
       success: true,

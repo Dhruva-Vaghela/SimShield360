@@ -346,8 +346,12 @@ export const getDecisionExplanation = async (
 
     const decisionResult = await decisionService.makeContextualDecision({
       riskScore: riskLog.riskScore,
-      riskLevel: riskLog.riskLevel,
-      factors: riskLog.factors,
+      riskLevel: riskLog.riskLevel as any,
+      factors: riskLog.factors.map((f: any) => ({
+        factorName: f.name,
+        score: f.score,
+        status: f.status,
+      })),
       userId: riskLog.userId.toString(),
       swapRequestId: requestId,
     });
