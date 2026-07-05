@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SimulatorRouteImport } from './routes/simulator'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as CustomerRouteImport } from './routes/customer'
 import { Route as AgentRouteImport } from './routes/agent'
 import { Route as IndexRouteImport } from './routes/index'
@@ -31,6 +32,11 @@ import { Route as AgentApprovalRouteImport } from './routes/agent.approval'
 const SimulatorRoute = SimulatorRouteImport.update({
   id: '/simulator',
   path: '/simulator',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomerRoute = CustomerRouteImport.update({
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agent': typeof AgentRouteWithChildren
   '/customer': typeof CustomerRouteWithChildren
+  '/login': typeof LoginRoute
   '/simulator': typeof SimulatorRoute
   '/agent/approval': typeof AgentApprovalRoute
   '/agent/audit': typeof AgentAuditRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/simulator': typeof SimulatorRoute
   '/agent/approval': typeof AgentApprovalRoute
   '/agent/audit': typeof AgentAuditRoute
@@ -162,6 +170,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/agent': typeof AgentRouteWithChildren
   '/customer': typeof CustomerRouteWithChildren
+  '/login': typeof LoginRoute
   '/simulator': typeof SimulatorRoute
   '/agent/approval': typeof AgentApprovalRoute
   '/agent/audit': typeof AgentAuditRoute
@@ -184,6 +193,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agent'
     | '/customer'
+    | '/login'
     | '/simulator'
     | '/agent/approval'
     | '/agent/audit'
@@ -202,6 +212,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
     | '/simulator'
     | '/agent/approval'
     | '/agent/audit'
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agent'
     | '/customer'
+    | '/login'
     | '/simulator'
     | '/agent/approval'
     | '/agent/audit'
@@ -243,6 +255,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgentRoute: typeof AgentRouteWithChildren
   CustomerRoute: typeof CustomerRouteWithChildren
+  LoginRoute: typeof LoginRoute
   SimulatorRoute: typeof SimulatorRoute
 }
 
@@ -253,6 +266,13 @@ declare module '@tanstack/react-router' {
       path: '/simulator'
       fullPath: '/simulator'
       preLoaderRoute: typeof SimulatorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customer': {
@@ -427,6 +447,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentRoute: AgentRouteWithChildren,
   CustomerRoute: CustomerRouteWithChildren,
+  LoginRoute: LoginRoute,
   SimulatorRoute: SimulatorRoute,
 }
 export const routeTree = rootRouteImport

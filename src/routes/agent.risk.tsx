@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { RiskGauge } from "@/components/RiskGauge";
-import { mockRequests } from "@/lib/mock-data";
+import { useRequests } from "@/lib/store";
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
 export const Route = createFileRoute("/agent/risk")({
@@ -9,11 +9,12 @@ export const Route = createFileRoute("/agent/risk")({
 });
 
 function RiskAnalysis() {
-  const avg = Math.round(mockRequests.reduce((s, r) => s + r.riskScore, 0) / mockRequests.length);
+  const { requests } = useRequests();
+  const avg = requests.length ? Math.round(requests.reduce((s, r) => s + r.riskScore, 0) / requests.length) : 0;
   const distribution = [
-    { band: "Low (0–30)",  count: mockRequests.filter((r) => r.riskScore < 31).length },
-    { band: "Med (31–70)", count: mockRequests.filter((r) => r.riskScore >= 31 && r.riskScore < 71).length },
-    { band: "High (71+)",  count: mockRequests.filter((r) => r.riskScore >= 71).length },
+    { band: "Low (0–30)",  count: requests.filter((r) => r.riskScore < 31).length },
+    { band: "Med (31–70)", count: requests.filter((r) => r.riskScore >= 31 && r.riskScore < 71).length },
+    { band: "High (71+)",  count: requests.filter((r) => r.riskScore >= 71).length },
   ];
   const signals = [
     { signal: "Geo", score: 72 },

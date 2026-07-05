@@ -11,76 +11,13 @@ import { useAuth } from "@/lib/auth";
 import { mockTimeline } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { verifyTOTP } from "@/lib/totp";
 
 export const Route = createFileRoute("/customer/sim-lock")({
   component: SimLockCenter,
 });
 
 type Step = "idle" | "biometric" | "auth" | "device" | "confirm" | "success";
-
-function base32ToBuf(secret: string): Uint8Array {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const cleaned = secret.toUpperCase().replace(/=+$/, "");
-  const buf = new Uint8Array(Math.floor((cleaned.length * 5) / 8));
-  let value = 0;
-  let bits = 0;
-  let index = 0;
-  for (let i = 0; i < cleaned.length; i++) {
-    const val = alphabet.indexOf(cleaned[i]);
-    if (val === -1) throw new Error("Invalid base32 character");
-    value = (value << 5) | val;
-    bits += 5;
-    if (bits >= 8) {
-      buf[index++] = (value >> (bits - 8)) & 255;
-      bits -= 8;
-    }
-  }
-  return buf;
-}
-
-async function verifyTOTP(inputCode: string): Promise<boolean> {
-  const secret = "JBSWY3DPEHPK3PXP";
-  try {
-    const keyBytes = base32ToBuf(secret);
-    const key = await window.crypto.subtle.importKey(
-      "raw",
-      keyBytes as any,
-      { name: "HMAC", hash: { name: "SHA-1" } },
-      false,
-      ["sign"]
-    );
-    const epoch = Math.round(new Date().getTime() / 1000.0);
-    const currentCounter = Math.floor(epoch / 30);
-    
-    // Check counter window to avoid latency issues
-    for (let offset = -1; offset <= 1; offset++) {
-      const counter = currentCounter + offset;
-      const counterBuffer = new Uint8Array(8);
-      let temp = counter;
-      for (let i = 7; i >= 0; i--) {
-        counterBuffer[i] = temp & 0xff;
-        temp = temp >> 8;
-      }
-      
-      const signature = await window.crypto.subtle.sign("HMAC", key, counterBuffer as any);
-      const signatureBytes = new Uint8Array(signature);
-      const idx = signatureBytes[signatureBytes.length - 1] & 0xf;
-      const binary =
-        ((signatureBytes[idx] & 0x7f) << 24) |
-        ((signatureBytes[idx + 1] & 0xff) << 16) |
-        ((signatureBytes[idx + 2] & 0xff) << 8) |
-        (signatureBytes[idx + 3] & 0xff);
-      
-      const computedCode = (binary % 1000000).toString().padStart(6, "0");
-      if (computedCode === inputCode) {
-        return true;
-      }
-    }
-  } catch (err) {
-    console.error("Error verifying TOTP", err);
-  }
-  return false;
-}
 
 async function analyzeLiveness(video: HTMLVideoElement): Promise<{ success: boolean; reason?: string }> {
   const canvas = document.createElement("canvas");
@@ -122,8 +59,10 @@ async function analyzeLiveness(video: HTMLVideoElement): Promise<{ success: bool
 }
 
 function SimLockCenter() {
-  const { locked, setLocked, blockedCount } = useSimLock();
   const { user } = useAuth();
+  const customerId = user?.id || "cust001";
+  const { getLockState, setLocked, incrementBlocked } = useSimLock();
+  const { locked, blockedCount } = getLockState(customerId);
   const [step, setStep] = useState<Step>("idle");
   const [inputCode, setInputCode] = useState("");
   const [isChecking, setIsChecking] = useState(false);
@@ -209,7 +148,7 @@ function SimLockCenter() {
     else if (step === "auth") setStep("device");
     else if (step === "device") setStep("confirm");
     else if (step === "confirm") {
-      setLocked(!locked);
+      setLocked(customerId, !locked);
       setStep("success");
       toast.success(locked ? "SIM Lock disabled" : "SIM Lock armed");
       setTimeout(close, 1400);
@@ -224,10 +163,10 @@ function SimLockCenter() {
     }
     
     setIsChecking(true);
-    const isValid = await verifyTOTP(inputCode);
+    const isValid = await verifyTOTP(inputCode, user?.totpSecret || "JBSWY3DPEHPK3PXP");
     setIsChecking(false);
 
-    if (isValid || inputCode === "123456") {
+    if (isValid) {
       toast.success("Authenticator code verified");
       setInputCode("");
       advance();
@@ -365,7 +304,7 @@ function SimLockCenter() {
               <motion.div key="a" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2"><KeyRound className="size-5 text-primary" /> Authenticator Code</DialogTitle>
-                  <DialogDescription>Enter the 6-digit code from your authenticator app (use 123456 as bypass).</DialogDescription>
+                  <DialogDescription>Enter the 6-digit code from your authenticator app.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleAuthVerify} className="my-6 space-y-4">
                   <Input

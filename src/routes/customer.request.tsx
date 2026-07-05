@@ -23,7 +23,8 @@ export const Route = createFileRoute("/customer/request")({
 function CreateRequestPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { locked } = useSimLock();
+  const { getLockState } = useSimLock();
+  const { locked } = getLockState(user?.id || "cust001");
   const { addRequest } = useRequests();
   const { addEvent } = useTimeline();
 
@@ -67,6 +68,7 @@ function CreateRequestPage() {
       kind: "request-blocked", // We reuse the timeline category for request placement
       message: `${requestType} request created`,
       meta: `${reqId} · Pending Approval`,
+      customerId: user?.id,
     });
 
     toast.success(`Request ${reqId} created successfully!`);

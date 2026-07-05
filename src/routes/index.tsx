@@ -25,8 +25,7 @@ function Landing() {
   const navigate = useNavigate();
 
   const enterAs = (role: Role) => {
-    loginAs(role);
-    navigate({ to: role === "customer" ? "/customer" : "/agent" });
+    navigate({ to: "/login" });
   };
 
   return (

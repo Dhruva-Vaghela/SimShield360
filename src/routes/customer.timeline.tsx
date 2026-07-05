@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { useTimeline } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Shield, ShieldOff, Plus, Trash2, ShieldAlert } from "lucide-react";
 
@@ -25,7 +26,12 @@ const TONES: Record<string, string> = {
 };
 
 function Timeline() {
+  const { user } = useAuth();
   const { events } = useTimeline();
+
+  const customerEvents = events.filter(
+    (ev) => ev.customerId === user?.id
+  );
 
   return (
     <div className="space-y-6">
@@ -35,7 +41,7 @@ function Timeline() {
       </div>
       <Card className="p-6 glass">
         <ol className="relative border-l border-border/60 ml-3 space-y-6">
-          {events.map((ev, i) => {
+          {customerEvents.map((ev, i) => {
             const Icon = ICONS[ev.kind];
             return (
               <motion.li key={ev.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="pl-8 relative">

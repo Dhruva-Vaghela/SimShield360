@@ -11,7 +11,7 @@ function CustomerLayout() {
   const { user } = useAuth();
   const navigate = useNavigate();
   useEffect(() => {
-    if (!user || user.role !== "customer") navigate({ to: "/" });
+    if (!user || user.role !== "customer") navigate({ to: "/login" });
   }, [user, navigate]);
   if (!user) return null;
   return (

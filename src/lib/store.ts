@@ -1,24 +1,43 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { LayerState, SimRequest, TimelineEvent } from "./mock-data";
-import { mockRequests, mockTimeline } from "./mock-data";
 
 interface SimLockState {
-  locked: boolean;
-  blockedCount: number;
-  setLocked: (v: boolean) => void;
-  incrementBlocked: () => void;
+  locks: Record<string, { locked: boolean; blockedCount: number }>;
+  setLocked: (customerId: string, locked: boolean) => void;
+  incrementBlocked: (customerId: string) => void;
+  getLockState: (customerId: string) => { locked: boolean; blockedCount: number };
 }
 
 export const useSimLock = create<SimLockState>()(
   persist(
-    (set) => ({
-      locked: true,
-      blockedCount: 14,
-      setLocked: (v) => set({ locked: v }),
-      incrementBlocked: () => set((s) => ({ blockedCount: s.blockedCount + 1 })),
+    (set, get) => ({
+      locks: {},
+      setLocked: (customerId, locked) =>
+        set((s) => ({
+          locks: {
+            ...s.locks,
+            [customerId]: {
+              locked,
+              blockedCount: s.locks[customerId]?.blockedCount ?? 0,
+            },
+          },
+        })),
+      incrementBlocked: (customerId) =>
+        set((s) => ({
+          locks: {
+            ...s.locks,
+            [customerId]: {
+              locked: s.locks[customerId]?.locked ?? true,
+              blockedCount: (s.locks[customerId]?.blockedCount ?? 0) + 1,
+            },
+          },
+        })),
+      getLockState: (customerId) => {
+        return get().locks[customerId] || { locked: false, blockedCount: 0 };
+      },
     }),
-    { name: "simshield-lock" }
+    { name: "simshield-lock-v2" }
   )
 );
 
@@ -64,7 +83,7 @@ interface RequestsState {
 export const useRequests = create<RequestsState>()(
   persist(
     (set) => ({
-      requests: [...mockRequests],
+      requests: [],
       addRequest: (req) => set((s) => ({ requests: [req, ...s.requests] })),
       updateRequestStatus: (id, status) =>
         set((s) => ({
@@ -85,7 +104,7 @@ interface TimelineState {
 export const useTimeline = create<TimelineState>()(
   persist(
     (set) => ({
-      events: [...mockTimeline],
+      events: [],
       addEvent: (ev) =>
         set((s) => ({
           events: [

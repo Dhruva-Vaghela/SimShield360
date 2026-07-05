@@ -7,12 +7,15 @@ import { Label } from "@/components/ui/label";
 import { KeyRound, CheckCircle2, ShieldAlert, RefreshCw, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useTimeline } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
+import { verifyTOTP } from "@/lib/totp";
 
 export const Route = createFileRoute("/customer/authenticator")({
   component: AuthenticatorPage,
 });
 
 function AuthenticatorPage() {
+  const { user } = useAuth();
   const { addEvent } = useTimeline();
 
   // Local state for configuration simulation
@@ -24,7 +27,7 @@ function AuthenticatorPage() {
   });
 
   const [isConfiguring, setIsConfiguring] = useState(!isEnabled);
-  const [secretKey] = useState("JBSWY3DPEHPK3PXP");
+  const secretKey = user?.totpSecret || "JBSWY3DPEHPK3PXP";
   const [copied, setCopied] = useState(false);
   const [verifyCode, setVerifyCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
@@ -44,13 +47,17 @@ function AuthenticatorPage() {
     }
 
     setIsVerifying(true);
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const isValid = await verifyTOTP(verifyCode, secretKey);
+    setIsVerifying(false);
+
+    if (!isValid) {
+      toast.error("Invalid verification code. Please check your authenticator app.");
+      return;
+    }
 
     setIsEnabled(true);
     localStorage.setItem("simshield-totp-enabled", "true");
     setIsConfiguring(false);
-    setIsVerifying(false);
     setVerifyCode("");
 
     addEvent({
@@ -201,7 +208,7 @@ function AuthenticatorPage() {
               <div className="text-xs font-mono text-muted-foreground mb-3">Scan with Authenticator App</div>
               <div className="bg-white p-3 rounded-xl size-36 flex items-center justify-center">
                 <img 
-                  src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=otpauth%3A%2F%2Ftotp%2FSIMShield%3Arahul.patel%40example.com%3Fsecret%3DJBSWY3DPEHPK3PXP%26issuer%3DSIMShield" 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=otpauth%3A%2F%2Ftotp%2FSIMShield%3A${encodeURIComponent(user?.email || "user@example.com")}%3Fsecret%3D${secretKey}%26issuer%3DSIMShield`} 
                   alt="Google Authenticator QR Code"
                   className="size-full object-contain"
                 />

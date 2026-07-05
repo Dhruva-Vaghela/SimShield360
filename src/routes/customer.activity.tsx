@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mockRequests, type RequestStatus } from "@/lib/mock-data";
 import { useRequests } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { Filter } from "lucide-react";
 
 export const Route = createFileRoute("/customer/activity")({
@@ -20,11 +21,13 @@ const statusTone: Record<RequestStatus, string> = {
 };
 
 function ActivityPage() {
+  const { user } = useAuth();
   const [status, setStatus] = useState<string>("all");
   const [risk, setRisk] = useState<string>("all");
   const { requests } = useRequests();
 
   const rows = requests.filter((r) =>
+    r.customerId === user?.id &&
     (status === "all" || r.status === status) &&
     (risk === "all" || (risk === "high" ? r.riskScore >= 71 : risk === "med" ? r.riskScore >= 31 && r.riskScore < 71 : r.riskScore < 31))
   );

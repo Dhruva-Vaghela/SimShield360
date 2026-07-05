@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Smartphone, Laptop, Tablet, Plus, Trash2, CheckCircle2, ShieldAlert, Check, X } from "lucide-react";
 import { mockDevices } from "@/lib/mock-data";
 import { useRequests, useTimeline } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -14,10 +15,13 @@ export const Route = createFileRoute("/customer/devices")({
 const ICONS = { Mobile: Smartphone, Laptop: Laptop, Tablet: Tablet };
 
 function Devices() {
+  const { user } = useAuth();
   const { requests, updateRequestStatus } = useRequests();
   const { addEvent } = useTimeline();
 
-  const activeRequests = requests.filter((r) => r.status === "pending" || r.status === "under-review");
+  const activeRequests = requests.filter(
+    (r) => (r.status === "pending" || r.status === "under-review") && r.customerId === user?.id
+  );
 
   const handleApprove = (reqId: string, type: string) => {
     updateRequestStatus(reqId, "approved");
@@ -26,6 +30,7 @@ function Devices() {
       kind: "unlock-success",
       message: `${type} Approved via Primary Trusted Device`,
       meta: `${reqId} · Trusted Device ring`,
+      customerId: user?.id,
     });
     toast.success(`Request ${reqId} approved successfully`);
   };
@@ -37,6 +42,7 @@ function Devices() {
       kind: "unlock-failed",
       message: `${type} Rejected via Primary Trusted Device`,
       meta: `${reqId} · Access revoked`,
+      customerId: user?.id,
     });
     toast.error(`Request ${reqId} rejected`);
   };

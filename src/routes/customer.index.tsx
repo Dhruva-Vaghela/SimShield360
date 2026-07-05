@@ -16,7 +16,8 @@ export const Route = createFileRoute("/customer/")({
 
 function CustomerHome() {
   const { user } = useAuth();
-  const { locked, blockedCount } = useSimLock();
+  const { getLockState } = useSimLock();
+  const { locked, blockedCount } = getLockState(user?.id || "cust001");
   const { requests, updateRequestStatus } = useRequests();
   const { events, addEvent } = useTimeline();
 
@@ -24,8 +25,14 @@ function CustomerHome() {
   const risk = locked ? 12 : 48;
   const protectionStatus = locked ? "SECURED" : "VULNERABLE";
 
-  // Filter requests that are active/pending review
-  const activeRequests = requests.filter((r) => r.status === "pending" || r.status === "under-review");
+  // Filter requests that are active/pending review and belong to this customer
+  const activeRequests = requests.filter(
+    (r) => (r.status === "pending" || r.status === "under-review") && r.customerId === user?.id
+  );
+
+  const customerEvents = events.filter(
+    (ev) => ev.customerId === user?.id
+  );
 
   const handleApprove = (reqId: string, type: string) => {
     updateRequestStatus(reqId, "approved");
@@ -34,6 +41,7 @@ function CustomerHome() {
       kind: "unlock-success",
       message: `${type} Approved by Customer`,
       meta: `${reqId} · Trusted Device consent`,
+      customerId: user?.id,
     });
     toast.success(`Request ${reqId} approved successfully`);
   };
@@ -45,6 +53,7 @@ function CustomerHome() {
       kind: "unlock-failed",
       message: `${type} Rejected by Customer`,
       meta: `${reqId} · Action blocked`,
+      customerId: user?.id,
     });
     toast.error(`Request ${reqId} rejected`);
   };
@@ -168,7 +177,7 @@ function CustomerHome() {
         <Card className="p-6 glass">
           <div className="text-lg font-semibold mb-4">Recent Activity</div>
           <ul className="space-y-3">
-            {events.slice(0, 5).map((ev) => (
+            {customerEvents.slice(0, 5).map((ev) => (
               <li key={ev.id} className="flex items-start gap-3 text-sm">
                 <div className="size-2 rounded-full bg-primary mt-1.5" />
                 <div className="flex-1">

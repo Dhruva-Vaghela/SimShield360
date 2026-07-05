@@ -46,13 +46,22 @@ interface AttackLogEntry {
 
 function ThreatSimulator() {
   const navigate = useNavigate();
-  const { locked, incrementBlocked } = useSimLock();
+  const { getLockState, incrementBlocked } = useSimLock();
   const { addRequest, requests, updateRequestStatus } = useRequests();
   const { addEvent } = useTimeline();
 
   // Attack Configuration States
   const [customerNumber, setCustomerNumber] = useState("+91 98250 12345");
   const [targetCustomer, setTargetCustomer] = useState("Rahul Patel");
+
+  const getCustomerId = (name: string) => {
+    if (name === "Rahul Patel") return "cust001";
+    if (name === "Priya Mehta") return "cust002";
+    if (name === "Karan Singh") return "cust003";
+    return "cust001";
+  };
+  const targetCustId = getCustomerId(targetCustomer);
+  const { locked } = getLockState(targetCustId);
   const [attackType, setAttackType] = useState<"SIM Swap" | "eSIM Transfer" | "Port-Out" | "SIM Replacement">("SIM Swap");
   const [location, setLocation] = useState("Mumbai"); // Registered is Vadodara
   const [device, setDevice] = useState("Attacker Kali Linux");
@@ -184,7 +193,7 @@ function ThreatSimulator() {
     const newReq = {
       id: reqId,
       customerName: targetCustomer,
-      customerId: "cust001",
+      customerId: targetCustId,
       phone: customerNumber,
       type: attackType === "eSIM Transfer" ? "eSIM Transfer" as const : attackType === "Port-Out" ? "Port-Out" as const : attackType === "SIM Replacement" ? "SIM Replacement" as const : "SIM Swap" as const,
       riskScore: risk,
@@ -217,7 +226,7 @@ function ThreatSimulator() {
       setDetectionStatus("Enforced Block");
       setFinalResult("Blocked");
       updateRequestStatus(reqId, "blocked");
-      incrementBlocked();
+      incrementBlocked(targetCustId);
       
       await syncBackendAttackState(reqId, "blocked", "Layer 1: SIM Lock Firewall", 98, "Enforced Block");
 
