@@ -17,7 +17,9 @@
     "test:integration": "jest --testPathPattern=src/__tests__/integration",
     "test:e2e": "jest --testPathPattern=src/__tests__/e2e",
     "test:cov": "jest --coverage",
-    "seed:admin": "ts-node src/scripts/create-admin.ts"
+    "seed:admin": "ts-node src/scripts/create-admin.ts",
+    "seed:users": "ts-node src/scripts/seed-users.ts",
+    "clear:db": "ts-node src/scripts/clear-db.ts"
   },
   "keywords": [
     "telecom",

@@ -98,7 +98,11 @@ export class UserService {
         email: data.email,
         passwordHash: data.password,
         role: data.role,
-        profile: data.profile,
+        profile: {
+          firstName: data.profile.firstName,
+          lastName: data.profile.lastName,
+          phone: (data.profile as any).phoneNumber || data.profile.phone,
+        },
         isActive: true,
         isVerified: false,
       });

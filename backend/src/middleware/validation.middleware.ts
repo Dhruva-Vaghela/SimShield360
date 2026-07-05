@@ -6,11 +6,11 @@ import { response } from '../utils/response.util';
 export const validate = (schema: ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      // Validate request body
-      const body = req.body;
-      if (body !== undefined && body !== null) {
-        schema.parse(body);
-      }
+      schema.parse({
+        body: req.body,
+        query: req.query,
+        params: req.params,
+      });
 
       // Validate query params
       const query = req.query;

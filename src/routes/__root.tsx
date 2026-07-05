@@ -89,7 +89,10 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { useBackendSync } from "../hooks/useBackendSync";
+
 function RootComponent() {
+  useBackendSync();
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>

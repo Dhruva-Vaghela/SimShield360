@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { getBackendUrl } from "./api";
 
 export type Role = "customer" | "telecom-agent";
 
@@ -80,7 +81,7 @@ interface AuthState {
     password?: string,
     faceImage?: string,
     totpSecret?: string
-  ) => Omit<MockUser, "token">;
+  ) => Promise<Omit<MockUser, "token">>;
 }
 
 export const useAuth = create<AuthState>()(
@@ -158,7 +159,7 @@ export const useAuth = create<AuthState>()(
         }
       },
 
-      registerCustomer: (name, phone, email, password = "password123", faceImage = "", totpSecret = "JBSWY3DPEHPK3PXP") => {
+      registerCustomer: async (name, phone, email, password = "password123", faceImage = "", totpSecret = "JBSWY3DPEHPK3PXP") => {
         const id = `cust-${Math.floor(1000 + Math.random() * 9000)}`;
         const newCust: Omit<MockUser, "token"> = {
           id,
@@ -173,6 +174,45 @@ export const useAuth = create<AuthState>()(
         };
 
         if (typeof window !== "undefined") {
+          const url = getBackendUrl();
+          const nameParts = name.trim().split(/\s+/);
+          const firstName = nameParts[0] || "";
+          const lastName = nameParts.slice(1).join(" ") || "Customer";
+          const cleanPhone = phone.replace(/[\s\-()]/g, "");
+
+          const res = await fetch(`${url}/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email,
+              password,
+              confirmPassword: password,
+              role: "customer",
+              profile: {
+                firstName,
+                lastName,
+                phoneNumber: cleanPhone
+              }
+            })
+          });
+
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({}));
+            let errMsg = "Database registration failed";
+            if (json.error) {
+              if (json.error.details && json.error.details.fieldErrors) {
+                errMsg = Object.entries(json.error.details.fieldErrors)
+                  .map(([field, msg]) => `${field.replace("body.profile.", "").replace("body.", "")}: ${msg}`)
+                  .join(", ");
+              } else {
+                errMsg = json.error.message || json.error;
+              }
+            } else if (json.message) {
+              errMsg = json.message;
+            }
+            throw new Error(errMsg);
+          }
+
           const list = get().getCustomers();
           const updatedList = [...list, newCust];
           localStorage.setItem("simshield-custom-customers", JSON.stringify(updatedList));

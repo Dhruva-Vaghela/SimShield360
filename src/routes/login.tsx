@@ -215,13 +215,6 @@ function LoginPage() {
       return;
     }
 
-    // Check if email already registered
-    const exists = getCustomers().some(c => c.email?.toLowerCase() === regEmail.toLowerCase());
-    if (exists) {
-      toast.error("Email address is already registered.");
-      return;
-    }
-
     // Go to face scan step
     setRegStage("biometric");
   };
@@ -259,29 +252,35 @@ function LoginPage() {
 
     setRegTotpVerifying(true);
     const isValid = await verifyTOTP(regTotpCode, regTotpSecret);
-    setRegTotpVerifying(false);
 
     if (isValid) {
-      // Register
-      const { registerCustomer } = useAuth.getState();
-      const newCust = registerCustomer(
-        regName,
-        regPhone,
-        regEmail,
-        regPassword,
-        regFaceImage,
-        regTotpSecret
-      );
+      try {
+        // Register in the database and local storage
+        const { registerCustomer } = useAuth.getState();
+        const newCust = await registerCustomer(
+          regName,
+          regPhone,
+          regEmail,
+          regPassword,
+          regFaceImage,
+          regTotpSecret
+        );
 
-      toast.success("Account registered successfully!");
-      setRegStage("success");
-      
-      // Automatically log them in
-      setTimeout(() => {
-        loginAsUser(newCust);
-        navigate({ to: "/customer" });
-      }, 1200);
+        toast.success("Account registered successfully!");
+        setRegStage("success");
+        
+        // Automatically log them in
+        setTimeout(() => {
+          loginAsUser(newCust);
+          navigate({ to: "/customer" });
+        }, 1200);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to register account on database server.");
+      } finally {
+        setRegTotpVerifying(false);
+      }
     } else {
+      setRegTotpVerifying(false);
       toast.error("Invalid code. Please scan the QR code and input correct code.");
     }
   };

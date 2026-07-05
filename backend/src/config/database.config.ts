@@ -1,5 +1,6 @@
 import { connect, connection, Connection, Mongoose } from 'mongoose';
 import logger from '../utils/logger.util';
+import environment from './environment.config';
 
 // MongoDB connection state
 let mongooseInstance: Mongoose | null = null;
@@ -17,13 +18,13 @@ export interface DatabaseConfig {
 
 // Load configuration from environment
 const config: DatabaseConfig = {
-  uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/simshield',
-  dbName: process.env.MONGODB_DB_NAME || 'simshield',
-  poolSize: parseInt(process.env.MONGODB_POOL_SIZE || '10', 10),
-  poolMax: parseInt(process.env.MONGODB_POOL_MAX || '20', 10),
+  uri: environment.MONGODB_URI || 'mongodb://localhost:27017/simshield',
+  dbName: environment.MONGODB_DB_NAME || 'simshield',
+  poolSize: parseInt(environment.MONGODB_POOL_SIZE || '10', 10),
+  poolMax: parseInt(environment.MONGODB_POOL_MAX || '20', 10),
   retryWrites: true,
   w: 'majority',
-  tls: process.env.NODE_ENV === 'production',
+  tls: environment.NODE_ENV === 'production',
 };
 
 // Log configuration (without sensitive data)
@@ -44,15 +45,14 @@ export const connectDatabase = async (): Promise<Mongoose> => {
     }
 
     const mongooseOptions = {
+      dbName: config.dbName,
       maxPoolSize: config.poolSize || 10,
       minPoolSize: Math.floor((config.poolSize || 10) / 2),
       maxConnecting: config.poolMax || 20,
       retryWrites: config.retryWrites,
       w: config.w as any,
-      tls: config.tls,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      family: 4,
     };
 
     logger.info('Connecting to MongoDB...', {

@@ -34,6 +34,8 @@ import {
 import { useSimLock, useRequests, useTimeline, useWorkflow } from "@/lib/store";
 import { toast } from "sonner";
 
+import { getBackendUrl } from "@/lib/api";
+
 export const Route = createFileRoute("/simulator")({
   component: ThreatSimulator,
 });
@@ -79,7 +81,7 @@ function ThreatSimulator() {
   const [attackLogs, setAttackLogs] = useState<AttackLogEntry[]>([]);
   const [simulatedReqId, setSimulatedReqId] = useState<string>("");
 
-  const BACKEND_URL = "http://localhost:3000/api/v1";
+  const BACKEND_URL = getBackendUrl();
 
   const apiCall = async (endpoint: string, method: "POST" | "PUT" | "GET", body?: any) => {
     try {
@@ -150,11 +152,10 @@ function ThreatSimulator() {
   };
 
   // Run the simulation sequence
-  const startSimulation = async () => {
+  const startSimulation = async (directToAgent = false) => {
     if (isAttacking) return;
     setIsAttacking(true);
     setFinalResult("Waiting");
-    setAttackStep(1);
     setAttackLogs([]);
     
     // Generate Request ID
@@ -162,12 +163,14 @@ function ThreatSimulator() {
     setSimulatedReqId(reqId);
 
     // Initial Risk Score compilation based on parameters
-    let risk = 15; // base risk
-    if (location !== "Vadodara") risk += 25; // location mismatch
-    if (device !== "Rahul's iPhone") risk += 25; // device mismatch
-    if (network.includes("Tor") || network.includes("Proxy")) risk += 15; // bad network
-    if (fakeDocuments) risk += 20; // forged documents
-    if (multipleAttempts) risk += 10;
+    let risk = directToAgent ? 95 : 15; // force high risk if sending directly to agent
+    if (!directToAgent) {
+      if (location !== "Vadodara") risk += 25; // location mismatch
+      if (device !== "Rahul's iPhone") risk += 25; // device mismatch
+      if (network.includes("Tor") || network.includes("Proxy")) risk += 15; // bad network
+      if (fakeDocuments) risk += 20; // forged documents
+      if (multipleAttempts) risk += 10;
+    }
     
     setCurrentRisk(risk);
 
@@ -185,8 +188,6 @@ function ThreatSimulator() {
       riskScore: risk,
     });
     
-    addLog(`Initiating attack vector [${attackType}] on ${targetCustomer} (${customerNumber})...`, "warning", reqId);
-    
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     
     // Create SimRequest entry
@@ -197,7 +198,7 @@ function ThreatSimulator() {
       phone: customerNumber,
       type: attackType === "eSIM Transfer" ? "eSIM Transfer" as const : attackType === "Port-Out" ? "Port-Out" as const : attackType === "SIM Replacement" ? "SIM Replacement" as const : "SIM Swap" as const,
       riskScore: risk,
-      status: "pending" as const,
+      status: directToAgent ? ("under-review" as const) : ("pending" as const),
       createdAt: "Just now",
       location: location,
       registeredLocation: "Vadodara",
@@ -213,6 +214,74 @@ function ThreatSimulator() {
       meta: `${reqId} · ${location}`,
     });
 
+    if (directToAgent) {
+      addLog(`[DIRECT ROUTE] Submitting attack vector [${attackType}] directly to Agent Queue...`, "warning", reqId);
+      await wait(800);
+
+      // Jump straight to Layer 6: Risk Engine / Agent review
+      setAttackStep(6);
+      setCurrentLayer("Layer 6: Risk Scoring Engine");
+      setDetectionStatus("Manual Review Required");
+      await syncBackendAttackState(reqId, "waiting", "Layer 6: Risk Scoring Engine", risk, "Awaiting Agent Override");
+      
+      addLog("Risk Engine flags this attempt as HIGH RISK. Routing to Agent Console for Manual Review.", "warning", reqId);
+      addLog("SYSTEM WAITING: Request is now in Agent Queue for authorization.", "warning", reqId);
+      
+      let agentApproved = false;
+      let agentChecked = 0;
+      
+      while (agentChecked < 10) {
+        // Break early if user aborted simulation
+        const reqs = useRequests.getState().requests;
+        const currentReq = reqs.find((r) => r.id === reqId);
+        
+        if (currentReq) {
+          if (currentReq.status === "approved") {
+            agentApproved = true;
+            break;
+          } else if (currentReq.status === "rejected" || currentReq.status === "blocked") {
+            agentApproved = false;
+            break;
+          }
+        }
+        await wait(1500);
+        agentChecked++;
+        addLog(`Waiting for agent decision... (${Math.round(15 - agentChecked * 1.5)}s timeout remaining)`, "info", reqId);
+      }
+      
+      if (!agentApproved) {
+        addLog("Decision Console: Request REJECTED by agent.", "error", reqId);
+        setFinalResult("Rejected");
+        setDetectionStatus("Rejected by Agent");
+        await syncBackendAttackState(reqId, "rejected", "Layer 6: Risk Scoring Engine", risk, "Rejected by Agent");
+        setIsAttacking(false);
+        toast.error("Attack rejected by agent");
+        return;
+      }
+
+      // SUCCESS
+      setAttackStep(7);
+      setCurrentLayer("Attack Completed");
+      setDetectionStatus("Authorized");
+      setFinalResult("Succeeded");
+      updateRequestStatus(reqId, "approved");
+      await syncBackendAttackState(reqId, "succeeded", "Attack Completed", risk, "Authorized");
+      
+      addEvent({
+        ts: "Just now",
+        kind: "unlock-success",
+        message: `${attackType} Request Approved`,
+        meta: `${reqId} · Attacker successful`,
+      });
+
+      addLog(`ATTACK SUCCESS: SIM Swap completed. Attacker has hijacked mobile number!`, "success", reqId);
+      addLog(`hijacked MSISDN: ${customerNumber}`, "success", reqId);
+      setIsAttacking(false);
+      toast.success("Attack succeeded! SIM card hijacked.");
+      return;
+    }
+
+    addLog(`Initiating attack vector [${attackType}] on ${targetCustomer} (${customerNumber})...`, "warning", reqId);
     await wait(1200);
 
     // LAYER 1: SIM Lock Firewall
@@ -611,10 +680,10 @@ function ThreatSimulator() {
               <div className="text-sm font-semibold">Simulation Control Room</div>
               <p className="text-xs text-muted-foreground">Trigger the attack and watch security layers respond.</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant={isAttacking ? "secondary" : "destructive"}
-                onClick={startSimulation}
+                onClick={() => startSimulation(false)}
                 disabled={isAttacking}
                 className="min-w-32 hover:bg-destructive/80 transition font-display"
               >
@@ -627,6 +696,14 @@ function ThreatSimulator() {
                     <Play className="size-4 mr-2" /> Launch Attack
                   </>
                 )}
+              </Button>
+              <Button
+                variant={isAttacking ? "secondary" : "default"}
+                onClick={() => startSimulation(true)}
+                disabled={isAttacking}
+                className="min-w-32 bg-amber-500 hover:bg-amber-600 text-black font-display font-semibold transition"
+              >
+                <Skull className="size-4 mr-2" /> Send to Agent
               </Button>
               <Button variant="outline" onClick={handleReset} disabled={isAttacking}>
                 <RotateCcw className="size-4 mr-2" /> Reset

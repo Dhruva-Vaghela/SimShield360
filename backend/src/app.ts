@@ -27,7 +27,13 @@ app.use(helmet());
 // 2. CORS middleware
 app.use(
   cors({
-    origin: config.CORS_ORIGINS.split(','),
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin || config.NODE_ENV === 'development' || config.CORS_ORIGINS.split(',').includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
