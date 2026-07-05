@@ -1,11 +1,13 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { Shield, LayoutDashboard, Lock, Smartphone, Activity, BarChart3, Clock, Settings, LogOut, type LucideIcon } from "lucide-react";
+import { Shield, LayoutDashboard, Lock, Smartphone, Activity, BarChart3, Clock, Settings, LogOut, FileText, KeyRound, type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
 interface NavItem { to: string; label: string; icon: LucideIcon }
+
+
 
 export function DashboardShell({
   items,
@@ -98,6 +100,8 @@ export const customerNav: NavItem[] = [
   { to: "/customer", label: "Dashboard", icon: LayoutDashboard },
   { to: "/customer/sim-lock", label: "SIM Lock Center", icon: Lock },
   { to: "/customer/devices", label: "Trusted Devices", icon: Smartphone },
+  { to: "/customer/request", label: "Create Request", icon: FileText },
+  { to: "/customer/authenticator", label: "Authenticator", icon: KeyRound },
   { to: "/customer/activity", label: "SIM Activity", icon: Activity },
   { to: "/customer/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/customer/timeline", label: "Timeline", icon: Clock },

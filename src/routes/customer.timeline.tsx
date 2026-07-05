@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
-import { mockTimeline } from "@/lib/mock-data";
+import { useTimeline } from "@/lib/store";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Shield, ShieldOff, Plus, Trash2, ShieldAlert } from "lucide-react";
 
@@ -25,6 +25,8 @@ const TONES: Record<string, string> = {
 };
 
 function Timeline() {
+  const { events } = useTimeline();
+
   return (
     <div className="space-y-6">
       <div>
@@ -33,10 +35,10 @@ function Timeline() {
       </div>
       <Card className="p-6 glass">
         <ol className="relative border-l border-border/60 ml-3 space-y-6">
-          {mockTimeline.map((ev, i) => {
+          {events.map((ev, i) => {
             const Icon = ICONS[ev.kind];
             return (
-              <motion.li key={ev.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="pl-8">
+              <motion.li key={ev.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="pl-8 relative">
                 <span className={`absolute -left-4 size-8 rounded-full grid place-items-center ${TONES[ev.kind]}`}>
                   <Icon className="size-4" />
                 </span>
@@ -47,6 +49,7 @@ function Timeline() {
           })}
         </ol>
       </Card>
+
     </div>
   );
 }

@@ -46,9 +46,9 @@ export function createServerEntry(entry: ServerEntry): ServerEntry {
   };
 }
 
-const fetch: RequestHandler<Register> = async (request, env, ctx) => {
+const fetch: RequestHandler<Register> = async (request: any, env?: any, ctx?: any) => {
   try {
-    const response = await startHandler(request, env, ctx);
+    const response = await (startHandler as any)(request, env, ctx);
     return await normalizeCatastrophicSsrResponse(response);
   } catch (error) {
     console.error(error);

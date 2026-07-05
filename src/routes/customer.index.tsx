@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion } from "framer-motion";
-import { Shield, Lock, Smartphone, ShieldAlert, ArrowUpRight, Activity, CheckCircle2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Shield, Lock, Smartphone, ShieldAlert, ArrowUpRight, Activity, CheckCircle2, Check, X, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useSimLock } from "@/lib/store";
+import { useSimLock, useRequests, useTimeline } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { mockDevices, mockTimeline, riskTrend } from "@/lib/mock-data";
-import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, Area, AreaChart } from "recharts";
+import { mockDevices, riskTrend } from "@/lib/mock-data";
+import { ResponsiveContainer, Tooltip, XAxis, YAxis, Area, AreaChart } from "recharts";
 import { RiskGauge } from "@/components/RiskGauge";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/customer/")({
   component: CustomerHome,
@@ -16,8 +17,37 @@ export const Route = createFileRoute("/customer/")({
 function CustomerHome() {
   const { user } = useAuth();
   const { locked, blockedCount } = useSimLock();
+  const { requests, updateRequestStatus } = useRequests();
+  const { events, addEvent } = useTimeline();
+
   const score = locked ? 96 : 64;
   const risk = locked ? 12 : 48;
+  const protectionStatus = locked ? "SECURED" : "VULNERABLE";
+
+  // Filter requests that are active/pending review
+  const activeRequests = requests.filter((r) => r.status === "pending" || r.status === "under-review");
+
+  const handleApprove = (reqId: string, type: string) => {
+    updateRequestStatus(reqId, "approved");
+    addEvent({
+      ts: "Just now",
+      kind: "unlock-success",
+      message: `${type} Approved by Customer`,
+      meta: `${reqId} · Trusted Device consent`,
+    });
+    toast.success(`Request ${reqId} approved successfully`);
+  };
+
+  const handleReject = (reqId: string, type: string) => {
+    updateRequestStatus(reqId, "rejected");
+    addEvent({
+      ts: "Just now",
+      kind: "unlock-failed",
+      message: `${type} Rejected by Customer`,
+      meta: `${reqId} · Action blocked`,
+    });
+    toast.error(`Request ${reqId} rejected`);
+  };
 
   return (
     <div className="space-y-6">
@@ -26,23 +56,68 @@ function CustomerHome() {
           <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Welcome back</div>
           <h1 className="text-3xl font-display font-bold mt-1">{user?.name}</h1>
         </div>
-        <Link to="/customer/sim-lock">
-          <Button><Lock className="size-4 mr-2" /> SIM Lock Center</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/customer/request">
+            <Button variant="outline"><FileText className="size-4 mr-2" /> New Request</Button>
+          </Link>
+          <Link to="/customer/sim-lock">
+            <Button><Lock className="size-4 mr-2" /> SIM Lock Center</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Security Score" value={score} suffix="/100" tone="success" icon={Shield} />
-        <Stat label="Current Risk" value={risk} suffix="/100" tone={risk > 50 ? "warning" : "success"} icon={ShieldAlert} />
+        <Stat label="Current Risk Score" value={risk} suffix="/100" tone={risk > 50 ? "warning" : "success"} icon={ShieldAlert} />
+        <Stat label="Account Protection Status" value={protectionStatus} tone={locked ? "success" : "warning"} icon={Lock} />
         <Stat label="Trusted Devices" value={mockDevices.length} tone="primary" icon={Smartphone} />
-        <Stat label="Attempts Blocked" value={blockedCount} tone="accent" icon={Activity} />
       </div>
+
+      {/* Active Requests Approval Queue */}
+      <AnimatePresence>
+        {activeRequests.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-3">
+            <div className="text-sm font-semibold flex items-center gap-2 text-warning animate-pulse">
+              <ShieldAlert className="size-4" /> Pending Request Authorizations
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {activeRequests.map((r) => (
+                <Card key={r.id} className="p-4 glass border-warning/30 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start">
+                      <span className="font-mono text-xs text-muted-foreground">{r.id}</span>
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-warning/15 text-warning font-semibold">
+                        Awaiting Consent
+                      </span>
+                    </div>
+                    <div className="mt-2 text-base font-semibold">{r.type}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Requested By: {r.customerName} · Phone: {r.phone}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Originating Location: {r.location}
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-2 justify-end">
+                    <Button size="sm" variant="ghost" onClick={() => handleReject(r.id, r.type)} className="text-destructive hover:bg-destructive/15">
+                      <X className="size-4 mr-1" /> Reject
+                    </Button>
+                    <Button size="sm" onClick={() => handleApprove(r.id, r.type)} className="bg-success hover:bg-success/80 text-white">
+                      <Check className="size-4 mr-1" /> Approve
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="grid lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2 p-6 glass">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="text-sm text-muted-foreground">Risk trend</div>
+              <div className="text-sm text-muted-foreground">Risk Trend</div>
               <div className="text-lg font-semibold">Last 14 days</div>
             </div>
             <span className="text-xs text-success flex items-center gap-1"><CheckCircle2 className="size-3" /> Stable</span>
@@ -66,7 +141,7 @@ function CustomerHome() {
         </Card>
 
         <Card className="p-6 glass flex flex-col items-center justify-center text-center">
-          <div className="text-sm text-muted-foreground mb-3">Live risk meter</div>
+          <div className="text-sm text-muted-foreground mb-3">Live Risk Meter</div>
           <RiskGauge score={risk} />
           <div className="text-xs text-muted-foreground mt-3">Updated from telecom intelligence engine</div>
         </Card>
@@ -91,9 +166,9 @@ function CustomerHome() {
         </Card>
 
         <Card className="p-6 glass">
-          <div className="text-lg font-semibold mb-4">Recent activity</div>
+          <div className="text-lg font-semibold mb-4">Recent Activity</div>
           <ul className="space-y-3">
-            {mockTimeline.slice(0, 5).map((ev) => (
+            {events.slice(0, 5).map((ev) => (
               <li key={ev.id} className="flex items-start gap-3 text-sm">
                 <div className="size-2 rounded-full bg-primary mt-1.5" />
                 <div className="flex-1">
@@ -118,9 +193,10 @@ function Stat({ label, value, suffix, icon: Icon, tone }: { label: string; value
         <Icon className={`size-4 ${toneCls}`} />
       </div>
       <div className="mt-3 flex items-baseline gap-1">
-        <div className={`text-3xl font-display font-bold ${toneCls}`}>{value}</div>
+        <div className={`text-2xl font-display font-bold ${toneCls}`}>{value}</div>
         {suffix && <div className="text-xs text-muted-foreground">{suffix}</div>}
       </div>
     </Card>
   );
 }
+

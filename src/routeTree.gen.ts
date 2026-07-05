@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SimulatorRouteImport } from './routes/simulator'
 import { Route as CustomerRouteImport } from './routes/customer'
 import { Route as AgentRouteImport } from './routes/agent'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,7 +18,9 @@ import { Route as AgentIndexRouteImport } from './routes/agent.index'
 import { Route as CustomerTimelineRouteImport } from './routes/customer.timeline'
 import { Route as CustomerSimLockRouteImport } from './routes/customer.sim-lock'
 import { Route as CustomerSettingsRouteImport } from './routes/customer.settings'
+import { Route as CustomerRequestRouteImport } from './routes/customer.request'
 import { Route as CustomerDevicesRouteImport } from './routes/customer.devices'
+import { Route as CustomerAuthenticatorRouteImport } from './routes/customer.authenticator'
 import { Route as CustomerAnalyticsRouteImport } from './routes/customer.analytics'
 import { Route as CustomerActivityRouteImport } from './routes/customer.activity'
 import { Route as AgentVerificationRouteImport } from './routes/agent.verification'
@@ -25,6 +28,11 @@ import { Route as AgentRiskRouteImport } from './routes/agent.risk'
 import { Route as AgentAuditRouteImport } from './routes/agent.audit'
 import { Route as AgentApprovalRouteImport } from './routes/agent.approval'
 
+const SimulatorRoute = SimulatorRouteImport.update({
+  id: '/simulator',
+  path: '/simulator',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CustomerRoute = CustomerRouteImport.update({
   id: '/customer',
   path: '/customer',
@@ -65,9 +73,19 @@ const CustomerSettingsRoute = CustomerSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => CustomerRoute,
 } as any)
+const CustomerRequestRoute = CustomerRequestRouteImport.update({
+  id: '/request',
+  path: '/request',
+  getParentRoute: () => CustomerRoute,
+} as any)
 const CustomerDevicesRoute = CustomerDevicesRouteImport.update({
   id: '/devices',
   path: '/devices',
+  getParentRoute: () => CustomerRoute,
+} as any)
+const CustomerAuthenticatorRoute = CustomerAuthenticatorRouteImport.update({
+  id: '/authenticator',
+  path: '/authenticator',
   getParentRoute: () => CustomerRoute,
 } as any)
 const CustomerAnalyticsRoute = CustomerAnalyticsRouteImport.update({
@@ -105,13 +123,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agent': typeof AgentRouteWithChildren
   '/customer': typeof CustomerRouteWithChildren
+  '/simulator': typeof SimulatorRoute
   '/agent/approval': typeof AgentApprovalRoute
   '/agent/audit': typeof AgentAuditRoute
   '/agent/risk': typeof AgentRiskRoute
   '/agent/verification': typeof AgentVerificationRoute
   '/customer/activity': typeof CustomerActivityRoute
   '/customer/analytics': typeof CustomerAnalyticsRoute
+  '/customer/authenticator': typeof CustomerAuthenticatorRoute
   '/customer/devices': typeof CustomerDevicesRoute
+  '/customer/request': typeof CustomerRequestRoute
   '/customer/settings': typeof CustomerSettingsRoute
   '/customer/sim-lock': typeof CustomerSimLockRoute
   '/customer/timeline': typeof CustomerTimelineRoute
@@ -120,13 +141,16 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/simulator': typeof SimulatorRoute
   '/agent/approval': typeof AgentApprovalRoute
   '/agent/audit': typeof AgentAuditRoute
   '/agent/risk': typeof AgentRiskRoute
   '/agent/verification': typeof AgentVerificationRoute
   '/customer/activity': typeof CustomerActivityRoute
   '/customer/analytics': typeof CustomerAnalyticsRoute
+  '/customer/authenticator': typeof CustomerAuthenticatorRoute
   '/customer/devices': typeof CustomerDevicesRoute
+  '/customer/request': typeof CustomerRequestRoute
   '/customer/settings': typeof CustomerSettingsRoute
   '/customer/sim-lock': typeof CustomerSimLockRoute
   '/customer/timeline': typeof CustomerTimelineRoute
@@ -138,13 +162,16 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/agent': typeof AgentRouteWithChildren
   '/customer': typeof CustomerRouteWithChildren
+  '/simulator': typeof SimulatorRoute
   '/agent/approval': typeof AgentApprovalRoute
   '/agent/audit': typeof AgentAuditRoute
   '/agent/risk': typeof AgentRiskRoute
   '/agent/verification': typeof AgentVerificationRoute
   '/customer/activity': typeof CustomerActivityRoute
   '/customer/analytics': typeof CustomerAnalyticsRoute
+  '/customer/authenticator': typeof CustomerAuthenticatorRoute
   '/customer/devices': typeof CustomerDevicesRoute
+  '/customer/request': typeof CustomerRequestRoute
   '/customer/settings': typeof CustomerSettingsRoute
   '/customer/sim-lock': typeof CustomerSimLockRoute
   '/customer/timeline': typeof CustomerTimelineRoute
@@ -157,13 +184,16 @@ export interface FileRouteTypes {
     | '/'
     | '/agent'
     | '/customer'
+    | '/simulator'
     | '/agent/approval'
     | '/agent/audit'
     | '/agent/risk'
     | '/agent/verification'
     | '/customer/activity'
     | '/customer/analytics'
+    | '/customer/authenticator'
     | '/customer/devices'
+    | '/customer/request'
     | '/customer/settings'
     | '/customer/sim-lock'
     | '/customer/timeline'
@@ -172,13 +202,16 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/simulator'
     | '/agent/approval'
     | '/agent/audit'
     | '/agent/risk'
     | '/agent/verification'
     | '/customer/activity'
     | '/customer/analytics'
+    | '/customer/authenticator'
     | '/customer/devices'
+    | '/customer/request'
     | '/customer/settings'
     | '/customer/sim-lock'
     | '/customer/timeline'
@@ -189,13 +222,16 @@ export interface FileRouteTypes {
     | '/'
     | '/agent'
     | '/customer'
+    | '/simulator'
     | '/agent/approval'
     | '/agent/audit'
     | '/agent/risk'
     | '/agent/verification'
     | '/customer/activity'
     | '/customer/analytics'
+    | '/customer/authenticator'
     | '/customer/devices'
+    | '/customer/request'
     | '/customer/settings'
     | '/customer/sim-lock'
     | '/customer/timeline'
@@ -207,10 +243,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgentRoute: typeof AgentRouteWithChildren
   CustomerRoute: typeof CustomerRouteWithChildren
+  SimulatorRoute: typeof SimulatorRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/simulator': {
+      id: '/simulator'
+      path: '/simulator'
+      fullPath: '/simulator'
+      preLoaderRoute: typeof SimulatorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/customer': {
       id: '/customer'
       path: '/customer'
@@ -267,11 +311,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomerSettingsRouteImport
       parentRoute: typeof CustomerRoute
     }
+    '/customer/request': {
+      id: '/customer/request'
+      path: '/request'
+      fullPath: '/customer/request'
+      preLoaderRoute: typeof CustomerRequestRouteImport
+      parentRoute: typeof CustomerRoute
+    }
     '/customer/devices': {
       id: '/customer/devices'
       path: '/devices'
       fullPath: '/customer/devices'
       preLoaderRoute: typeof CustomerDevicesRouteImport
+      parentRoute: typeof CustomerRoute
+    }
+    '/customer/authenticator': {
+      id: '/customer/authenticator'
+      path: '/authenticator'
+      fullPath: '/customer/authenticator'
+      preLoaderRoute: typeof CustomerAuthenticatorRouteImport
       parentRoute: typeof CustomerRoute
     }
     '/customer/analytics': {
@@ -340,7 +398,9 @@ const AgentRouteWithChildren = AgentRoute._addFileChildren(AgentRouteChildren)
 interface CustomerRouteChildren {
   CustomerActivityRoute: typeof CustomerActivityRoute
   CustomerAnalyticsRoute: typeof CustomerAnalyticsRoute
+  CustomerAuthenticatorRoute: typeof CustomerAuthenticatorRoute
   CustomerDevicesRoute: typeof CustomerDevicesRoute
+  CustomerRequestRoute: typeof CustomerRequestRoute
   CustomerSettingsRoute: typeof CustomerSettingsRoute
   CustomerSimLockRoute: typeof CustomerSimLockRoute
   CustomerTimelineRoute: typeof CustomerTimelineRoute
@@ -350,7 +410,9 @@ interface CustomerRouteChildren {
 const CustomerRouteChildren: CustomerRouteChildren = {
   CustomerActivityRoute: CustomerActivityRoute,
   CustomerAnalyticsRoute: CustomerAnalyticsRoute,
+  CustomerAuthenticatorRoute: CustomerAuthenticatorRoute,
   CustomerDevicesRoute: CustomerDevicesRoute,
+  CustomerRequestRoute: CustomerRequestRoute,
   CustomerSettingsRoute: CustomerSettingsRoute,
   CustomerSimLockRoute: CustomerSimLockRoute,
   CustomerTimelineRoute: CustomerTimelineRoute,
@@ -365,6 +427,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentRoute: AgentRouteWithChildren,
   CustomerRoute: CustomerRouteWithChildren,
+  SimulatorRoute: SimulatorRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

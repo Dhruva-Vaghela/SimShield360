@@ -1,17 +1,22 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { mockRequests, type SimRequest } from "@/lib/mock-data";
-import { useWorkflow } from "@/lib/store";
+import { useRequests, useTimeline, useWorkflow } from "@/lib/store";
 import { WorkflowVisualization } from "@/components/WorkflowVisualization";
 import { RiskGauge } from "@/components/RiskGauge";
-import { Shield, MapPin, Smartphone, History, AlertTriangle, Play, RotateCcw, CheckCircle2, XCircle, ShieldAlert } from "lucide-react";
+import { Shield, MapPin, Smartphone, History, AlertTriangle, Play, RotateCcw, CheckCircle2, XCircle, ShieldAlert, BrainCircuit } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { type SimRequest } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/agent/verification")({
+  validateSearch: (search: Record<string, unknown>): { reqId?: string } => {
+    return {
+      reqId: search.reqId as string | undefined,
+    };
+  },
   component: VerificationCenter,
 });
 
@@ -26,9 +31,34 @@ const SCENARIOS: { key: ScenarioKey; label: string; desc: string; result: string
 ];
 
 function VerificationCenter() {
+  const { reqId } = Route.useSearch();
+  const navigate = useNavigate();
+  const { requests, updateRequestStatus } = useRequests();
+  const { addEvent } = useTimeline();
+
   const { layers, setLayer, reset, setRunning, running, setDecision, finalDecision } = useWorkflow();
-  const [selected, setSelected] = useState<SimRequest>(mockRequests[0]);
+
+  // Find selected request, default to first request if none matches reqId
+  const [selected, setSelected] = useState<SimRequest>(() => {
+    if (reqId) {
+      const match = requests.find((r) => r.id === reqId);
+      if (match) return match;
+    }
+    return requests[0];
+  });
+
   const [riskValue, setRiskValue] = useState(selected.riskScore);
+
+  useEffect(() => {
+    if (reqId) {
+      const match = requests.find((r) => r.id === reqId);
+      if (match) {
+        setSelected(match);
+        setRiskValue(match.riskScore);
+        reset();
+      }
+    }
+  }, [reqId, requests]);
 
   const runScenario = async (key: ScenarioKey) => {
     reset();
@@ -39,19 +69,21 @@ function VerificationCenter() {
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
     if (key === "sim-lock") {
-      setLayer("sim-lock", "blocked"); await wait(700);
-      ["face", "auth", "device", "telecom", "risk", "final"].forEach((k) => setLayer(k, "blocked"));
+      setLayer("sim-lock", "blocked"); await wait(600);
+      ["face", "auth", "device", "telecom", "risk"].forEach((k) => setLayer(k, "blocked"));
       setDecision("blocked");
+      updateRequestStatus(selected.id, "blocked");
       toast.error("BLOCKED at Layer 1 — Customer SIM Lock is armed");
       setRunning(false);
       return;
     }
 
-    setLayer("sim-lock", "success"); await wait(500);
+    setLayer("sim-lock", "success"); await wait(400);
 
     if (key === "face-fail") {
       setLayer("face", "failed"); await wait(400);
       setDecision("rejected");
+      updateRequestStatus(selected.id, "rejected");
       toast.error("Rejected at Layer 2 — Face verification mismatch");
       setRunning(false);
       return;
@@ -62,6 +94,7 @@ function VerificationCenter() {
     if (key === "device-timeout") {
       setLayer("device", "failed"); await wait(400);
       setDecision("rejected");
+      updateRequestStatus(selected.id, "rejected");
       toast.error("Rejected at Layer 4 — Trusted device did not approve");
       setRunning(false);
       return;
@@ -71,8 +104,8 @@ function VerificationCenter() {
     if (key === "geo") {
       setLayer("telecom", "failed"); await wait(400);
       setLayer("risk", "failed"); await wait(400);
-      setLayer("final", "failed");
       setDecision("rejected");
+      updateRequestStatus(selected.id, "rejected");
       toast.warning("Rejected — Telecom intelligence flagged geo anomaly");
       setRunning(false);
       return;
@@ -80,21 +113,59 @@ function VerificationCenter() {
     if (key === "frozen") {
       setLayer("telecom", "blocked");
       setLayer("risk", "blocked");
-      setLayer("final", "blocked");
       setDecision("blocked");
+      updateRequestStatus(selected.id, "blocked");
       toast.error("Account frozen — too many failed attempts");
       setRunning(false);
       return;
     }
     setLayer("telecom", "success"); await wait(400);
     setLayer("risk", "success"); await wait(400);
-    setLayer("final", "success");
     setDecision("approved");
-    toast.success("Request approved through all 7 layers");
+    updateRequestStatus(selected.id, "approved");
+    toast.success("Request approved through all layers");
     setRunning(false);
   };
 
-  const simLockBlocked = layers["sim-lock"] === "blocked";
+  const handleApprove = () => {
+    updateRequestStatus(selected.id, "approved");
+    setDecision("approved");
+    addEvent({
+      ts: "Just now",
+      kind: "unlock-success",
+      message: `${selected.type} approved by operator desk`,
+      meta: `${selected.id} · Manual Override`,
+    });
+    toast.success(`Request ${selected.id} approved successfully`);
+  };
+
+  const handleReject = () => {
+    updateRequestStatus(selected.id, "rejected");
+    setDecision("rejected");
+    addEvent({
+      ts: "Just now",
+      kind: "unlock-failed",
+      message: `${selected.type} rejected by operator desk`,
+      meta: `${selected.id} · Manually blocked`,
+    });
+    toast.error(`Request ${selected.id} rejected`);
+  };
+
+  const simLockBlocked = selected.status === "blocked" || layers["sim-lock"] === "blocked";
+
+  // AI Recommendation engine text
+  const getAIRecommendation = () => {
+    if (selected.status === "blocked") {
+      return "AI Verdict: AUTO-DENY. SIM Lock Firewall is armed. Reject action is mandatory.";
+    }
+    if (selected.riskScore >= 70) {
+      return "AI Verdict: HIGH RISK. Detected location mismatch and device signature changes. Suggest manual voice validation prior to authorization.";
+    }
+    if (selected.riskScore >= 30) {
+      return "AI Verdict: MEDIUM RISK. Minor geo-discrepancy detected. Authenticator checks passed successfully.";
+    }
+    return "AI Verdict: LOW RISK. Perfect trust markers. Clean hardware fingerprint. Auto-approve recommended.";
+  };
 
   return (
     <div className="space-y-6">
@@ -114,6 +185,7 @@ function VerificationCenter() {
               <span className="font-mono text-xs text-muted-foreground">{selected.id}</span>
               <Badge>{selected.type}</Badge>
               <Badge variant="outline">{selected.phone}</Badge>
+              <Badge variant="secondary" className="font-mono text-xs uppercase">{selected.status}</Badge>
             </div>
             <div className="text-xl font-semibold mt-2">{selected.customerName}</div>
             <div className="text-sm text-muted-foreground">Request originating from {selected.location} · registered in {selected.registeredLocation}</div>
@@ -122,11 +194,14 @@ function VerificationCenter() {
             className="bg-card border border-border rounded-md px-3 py-2 text-sm"
             value={selected.id}
             onChange={(e) => {
-              const r = mockRequests.find((x) => x.id === e.target.value)!;
-              setSelected(r); setRiskValue(r.riskScore); reset();
+              const r = requests.find((x) => x.id === e.target.value)!;
+              setSelected(r);
+              setRiskValue(r.riskScore);
+              reset();
+              navigate({ to: "/agent/verification", search: { reqId: r.id } });
             }}
           >
-            {mockRequests.map((r) => <option key={r.id} value={r.id}>{r.id} · {r.customerName}</option>)}
+            {requests.map((r) => <option key={r.id} value={r.id}>{r.id} · {r.customerName}</option>)}
           </select>
         </div>
       </Card>
@@ -143,11 +218,10 @@ function VerificationCenter() {
                 <div className="flex-1">
                   <div className="text-lg font-semibold text-destructive">Customer SIM Lock Enabled</div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    This customer has armed their SIM Lock firewall. Operator cannot override. The request must be rejected and the customer notified.
+                    SIM Lock is enabled, therefore no authorization action is required. All operations are hard-blocked by the client ring.
                   </p>
                   <div className="mt-4 flex gap-2">
-                    <Button variant="destructive" size="sm" onClick={() => toast.error("Request rejected")}><XCircle className="size-4 mr-1" /> Reject Request</Button>
-                    <Button variant="outline" size="sm" onClick={() => toast.message("Customer notified via trusted device")}>Notify Customer</Button>
+                    <Button variant="destructive" size="sm" onClick={handleReject}><XCircle className="size-4 mr-1" /> Terminate & Log</Button>
                   </div>
                 </div>
               </div>
@@ -156,13 +230,43 @@ function VerificationCenter() {
         )}
       </AnimatePresence>
 
-      {/* Workflow */}
+      {/* Workflow Monitor showing live status */}
       <Card className="p-6 glass">
         <div className="flex items-center justify-between mb-4">
-          <div className="text-sm font-semibold">7-Layer Workflow</div>
-          <FinalDecision decision={finalDecision} />
+          <div className="text-sm font-semibold">Workflow Monitor</div>
+          <FinalDecision decision={finalDecision !== "pending" ? finalDecision : selected.status} />
         </div>
         <WorkflowVisualization layers={layers} />
+      </Card>
+
+      {/* Decision Console */}
+      <Card className="p-6 glass border-primary/20 space-y-4">
+        <div className="flex items-center gap-2 border-b border-border/50 pb-3">
+          <BrainCircuit className="size-5 text-primary" />
+          <h2 className="text-lg font-semibold">Decision Console</h2>
+        </div>
+        
+        <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg text-sm font-semibold text-foreground">
+          {getAIRecommendation()}
+        </div>
+
+        <div className="flex gap-3 justify-end">
+          <Button
+            variant="ghost"
+            className="text-destructive hover:bg-destructive/15"
+            disabled={simLockBlocked}
+            onClick={handleReject}
+          >
+            <XCircle className="size-4 mr-2" /> Reject Request
+          </Button>
+          <Button
+            className="bg-success hover:bg-success/80 text-white font-medium"
+            disabled={simLockBlocked}
+            onClick={handleApprove}
+          >
+            <CheckCircle2 className="size-4 mr-2" /> Approve Request
+          </Button>
+        </div>
       </Card>
 
       {/* Side panels */}
@@ -213,9 +317,10 @@ function IntelRow({ icon: Icon, label, value, flag }: { icon: React.ComponentTyp
   );
 }
 
-function FinalDecision({ decision }: { decision: ReturnType<typeof useWorkflow.getState>["finalDecision"] }) {
-  if (decision === "pending") return <Badge className="bg-muted text-muted-foreground"><Play className="size-3 mr-1" /> Awaiting</Badge>;
-  if (decision === "approved") return <Badge className="bg-success/20 text-success"><CheckCircle2 className="size-3 mr-1" /> APPROVED</Badge>;
-  if (decision === "rejected") return <Badge className="bg-destructive/20 text-destructive"><XCircle className="size-3 mr-1" /> REJECTED</Badge>;
+function FinalDecision({ decision }: { decision: string }) {
+  const d = decision.toLowerCase();
+  if (d === "pending" || d === "under-review") return <Badge className="bg-muted text-muted-foreground"><Play className="size-3 mr-1" /> Awaiting</Badge>;
+  if (d === "approved" || d === "success") return <Badge className="bg-success/20 text-success"><CheckCircle2 className="size-3 mr-1" /> APPROVED</Badge>;
+  if (d === "rejected" || d === "denied") return <Badge className="bg-destructive/20 text-destructive"><XCircle className="size-3 mr-1" /> REJECTED</Badge>;
   return <Badge className="bg-primary/20 text-primary"><ShieldAlert className="size-3 mr-1" /> BLOCKED</Badge>;
 }

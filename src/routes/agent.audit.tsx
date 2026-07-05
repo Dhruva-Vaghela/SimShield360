@@ -1,14 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { mockRequests } from "@/lib/mock-data";
+import { useRequests } from "@/lib/store";
 
 export const Route = createFileRoute("/agent/audit")({
   component: Audit,
 });
 
 function Audit() {
-  const logs = mockRequests.flatMap((r, i) => [
+  const { requests } = useRequests();
+  const logs = requests.flatMap((r, i) => [
     { ts: r.createdAt, actor: "system", action: `Workflow started for ${r.id}`, level: "info" as const },
     { ts: r.createdAt, actor: "risk-engine", action: `Risk score computed: ${r.riskScore}`, level: r.riskScore >= 71 ? "warn" as const : "info" as const },
     { ts: r.createdAt, actor: r.status === "blocked" ? "sim-lock" : "agent001", action: `Decision: ${r.status.toUpperCase()}`, level: r.status === "approved" ? "ok" as const : r.status === "blocked" ? "warn" as const : "err" as const },

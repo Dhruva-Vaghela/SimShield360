@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { lazy, Suspense } from "react";
-import { Shield, Lock, Smartphone, Activity, ArrowRight, CheckCircle2, Fingerprint, Radar, Brain, Network, ShieldCheck, AlertTriangle, BarChart3, Zap } from "lucide-react";
+import { Shield, Lock, Smartphone, Activity, ArrowRight, CheckCircle2, Fingerprint, Radar, Brain, Network, ShieldCheck, AlertTriangle, BarChart3, Zap, Skull } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth, type Role } from "@/lib/auth";
 import { SECURITY_LAYERS } from "@/lib/mock-data";
@@ -47,14 +47,23 @@ function Landing() {
             <a href="#layers" className="hover:text-foreground">Protection</a>
             <a href="#workflow" className="hover:text-foreground">Workflow</a>
             <a href="#stats" className="hover:text-foreground">Statistics</a>
+            <Link to="/simulator" className="hover:text-foreground flex items-center gap-1 text-destructive font-semibold">
+              <Skull className="size-3.5" /> Threat Simulator
+            </Link>
             <a href="#demo" className="hover:text-foreground">Demo</a>
           </nav>
           <div className="flex gap-2">
+            <Link to="/simulator">
+              <Button size="sm" variant="outline" className="border-destructive/30 hover:bg-destructive/10 text-destructive flex items-center gap-1">
+                <Skull className="size-3.5" /> Threat Simulator
+              </Button>
+            </Link>
             <Button size="sm" variant="ghost" onClick={() => enterAs("telecom-agent")}>Agent</Button>
             <Button size="sm" onClick={() => enterAs("customer")}>Customer</Button>
           </div>
         </div>
       </header>
+
 
       {/* HERO */}
       <section className="relative min-h-[92vh] grid-bg overflow-hidden">

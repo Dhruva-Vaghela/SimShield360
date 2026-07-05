@@ -9,6 +9,7 @@ import riskRoutes from './risk.routes';
 import verificationRoutes from './verification.routes';
 import auditRoutes from './audit.routes';
 import notificationRoutes from './notification.routes';
+import simulatorRoutes from './simulator.routes';
 
 // Create router
 const router = Router();
@@ -22,6 +23,7 @@ router.use('/risk', riskRoutes);
 router.use('/verification', verificationRoutes);
 router.use('/audit', auditRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/simulator', simulatorRoutes);
 
 // Health check route
 router.get('/health', (_req, res) => {
