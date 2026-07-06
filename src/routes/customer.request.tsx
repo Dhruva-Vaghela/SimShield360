@@ -13,8 +13,9 @@ import {
 } from "@/components/ui/select";
 import { useSimLock, useRequests, useTimeline } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { ShieldAlert, Send, FileText } from "lucide-react";
+import { ShieldAlert, Send } from "lucide-react";
 import { toast } from "sonner";
+import { getBackendUrl } from "@/lib/api";
 
 export const Route = createFileRoute("/customer/request")({
   component: CreateRequestPage,
@@ -32,6 +33,13 @@ function CreateRequestPage() {
   const [phoneNumber, setPhoneNumber] = useState(user?.phone || "");
   const [email, setEmail] = useState(user?.email || "");
   const [requestType, setRequestType] = useState<"SIM Swap" | "eSIM Transfer" | "Port-Out" | "SIM Replacement">("SIM Swap");
+  const [newPhoneNumber, setNewPhoneNumber] = useState(user?.phone || "");
+  const [newSimCardNumber, setNewSimCardNumber] = useState(
+    () => "8991" + Math.floor(100000000000000 + Math.random() * 900000000000000).toString()
+  );
+  const [reason, setReason] = useState(
+    "I would like to request a new SIM card swap due to upgrading to a new device."
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,39 +49,91 @@ function CreateRequestPage() {
       return;
     }
 
+    if (reason.length < 20) {
+      toast.error("Reason must be at least 20 characters.");
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const url = getBackendUrl();
+      const cleanCurrentPhone = phoneNumber.replace(/[\s\-()]/g, "");
+      const cleanNewPhone = newPhoneNumber && newPhoneNumber.trim()
+        ? newPhoneNumber.replace(/[\s\-()]/g, "")
+        : cleanCurrentPhone;
 
-    const reqId = `REQ-${Math.floor(10000 + Math.random() * 90000)}`;
-    const newReq = {
-      id: reqId,
-      customerName,
-      customerId: user?.id || "cust001",
-      phone: phoneNumber,
-      type: requestType,
-      riskScore: 12, // User initiated from trusted dashboard has low risk
-      status: "pending" as const,
-      createdAt: "Just now",
-      location: "Vadodara",
-      registeredLocation: "Vadodara",
-      deviceChanged: false,
-      recentSimChanges: 0,
-    };
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      if (user?.token) {
+        headers["Authorization"] = `Bearer ${user.token}`;
+      }
 
-    addRequest(newReq);
-    addEvent({
-      ts: "Just now",
-      kind: "request-blocked", // We reuse the timeline category for request placement
-      message: `${requestType} request created`,
-      meta: `${reqId} · Pending Approval`,
-      customerId: user?.id,
-    });
+      const res = await fetch(`${url}/swap-requests`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          currentPhoneNumber: cleanCurrentPhone,
+          newPhoneNumber: cleanNewPhone,
+          newSimCardNumber: newSimCardNumber,
+          reason: reason,
+          deviceFingerprint: "c1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6", // 32 characters
+        }),
+      });
 
-    toast.success(`Request ${reqId} created successfully!`);
-    setIsSubmitting(false);
-    navigate({ to: "/customer/activity" });
+      const json = await res.json();
+      if (!res.ok) {
+        let errMsg = "Failed to submit swap request to database";
+        if (json.error) {
+          if (json.error.details && json.error.details.fieldErrors) {
+            errMsg = Object.entries(json.error.details.fieldErrors)
+              .map(([field, msg]) => `${field.replace("body.", "")}: ${msg}`)
+              .join(", ");
+          } else {
+            errMsg = json.error.message || json.error;
+          }
+        } else if (json.message) {
+          errMsg = json.message;
+        }
+        throw new Error(errMsg);
+      }
+
+      const swapRequestId = json.data?.swapRequestId || `REQ-${Math.floor(10000 + Math.random() * 90000)}`;
+
+      const newReq = {
+        id: swapRequestId,
+        customerName,
+        customerId: user?.id || "cust001",
+        phone: newPhoneNumber,
+        type: requestType,
+        riskScore: 12, // User initiated has low risk
+        status: "pending" as const,
+        createdAt: "Just now",
+        location: "Vadodara",
+        registeredLocation: "Vadodara",
+        deviceChanged: false,
+        recentSimChanges: 0,
+      };
+
+      // skipBackend = true because we already posted to /swap-requests manually
+      addRequest(newReq, true);
+      addEvent({
+        ts: "Just now",
+        kind: "request-blocked", // We reuse the timeline category for request placement
+        message: `${requestType} request created`,
+        meta: `${swapRequestId} · Pending Approval`,
+        customerId: user?.id,
+      });
+
+      toast.success(`Request ${swapRequestId} submitted to cloud database!`);
+      navigate({ to: "/customer/activity" });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Could not connect to database server.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -163,6 +223,42 @@ function CreateRequestPage() {
                 <SelectItem value="SIM Replacement">Replace SIM</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-phone">New Phone Number (Optional)</Label>
+            <Input
+              id="new-phone"
+              value={newPhoneNumber}
+              onChange={(e) => setNewPhoneNumber(e.target.value)}
+              disabled={locked || isSubmitting}
+              className="bg-card/50 border-border"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sim-number">New SIM Card Number</Label>
+            <Input
+              id="sim-number"
+              value={newSimCardNumber}
+              onChange={(e) => setNewSimCardNumber(e.target.value)}
+              disabled={locked || isSubmitting}
+              required
+              className="bg-card/50 border-border font-mono"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="reason">Reason for Request (Min 20 characters)</Label>
+            <textarea
+              id="reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={locked || isSubmitting}
+              required
+              rows={3}
+              className="w-full min-h-[80px] bg-card/50 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-card/50 border-border"
+            />
           </div>
 
           <div className="pt-4 flex justify-end">

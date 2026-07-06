@@ -33,6 +33,7 @@ export interface TimelineEvent {
   kind: "lock-enabled" | "lock-disabled" | "unlock-failed" | "unlock-success" | "request-blocked" | "device-added" | "device-removed";
   message: string;
   meta?: string;
+  customerId?: string;
 }
 
 export const mockRequests: SimRequest[] = [];

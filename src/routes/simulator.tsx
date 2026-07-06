@@ -206,7 +206,7 @@ function ThreatSimulator() {
       recentSimChanges: multipleAttempts ? 4 : 1,
     };
     
-    addRequest(newReq);
+    addRequest(newReq, true);
     addEvent({
       ts: "Just now",
       kind: "request-blocked",

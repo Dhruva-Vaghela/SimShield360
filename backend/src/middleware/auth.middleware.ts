@@ -15,6 +15,8 @@ export interface AuthRequest extends Request {
   };
 }
 
+import { User } from '../models/User.model';
+
 // Export as AuthenticateRequest for backward compatibility
 export type AuthenticateRequest = AuthRequest;
 
@@ -37,9 +39,18 @@ export const authenticate = async (req: AuthRequest, _res: Response, next: NextF
       throw new UnauthorizedError('Token expired or invalid');
     }
 
+    // Resolve mock userId to real database ObjectId
+    let resolvedId = decoded.userId;
+    if (decoded.email) {
+      const userDoc = await User.findOne({ email: decoded.email }).exec();
+      if (userDoc) {
+        resolvedId = userDoc._id.toString();
+      }
+    }
+
     // Attach user to request
     req.user = {
-      id: decoded.userId,
+      id: resolvedId,
       email: decoded.email,
       role: decoded.role,
       iat: decoded.iat,

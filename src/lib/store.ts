@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { LayerState, SimRequest, TimelineEvent } from "./mock-data";
 import { getBackendUrl } from "./api";
+import { useAuth } from "./auth";
 
 interface SimLockState {
   locks: Record<string, { locked: boolean; blockedCount: number }>;
@@ -76,15 +77,17 @@ export const useWorkflow = create<WorkflowState>((set) => ({
 
 interface RequestsState {
   requests: SimRequest[];
-  addRequest: (req: SimRequest) => void | Promise<void>;
+  addRequest: (req: SimRequest, skipBackend?: boolean) => void | Promise<void>;
   updateRequestStatus: (id: string, status: SimRequest["status"]) => void | Promise<void>;
   clearRequests: () => void;
 }
 
 export const useRequests = create<RequestsState>()((set) => ({
   requests: [],
-  addRequest: async (req) => {
+  addRequest: async (req, skipBackend = false) => {
     set((s) => ({ requests: [req, ...s.requests] }));
+    // skipBackend=true when the caller (e.g. simulator.tsx) already posted to the backend
+    if (skipBackend) return;
     try {
       const url = getBackendUrl();
       await fetch(`${url}/simulator/attacks`, {
@@ -112,19 +115,50 @@ export const useRequests = create<RequestsState>()((set) => ({
       requests: s.requests.map((r) => (r.id === id ? { ...r, status } : r)),
     }));
 
-    let backendStatus = "started";
-    if (status === "approved") backendStatus = "succeeded";
-    else if (status === "rejected") backendStatus = "rejected";
-    else if (status === "blocked") backendStatus = "blocked";
-    else if (status === "under-review") backendStatus = "waiting";
+    const isBackendSwapId = /^[0-9a-fA-F]{24}$/.test(id);
 
     try {
       const url = getBackendUrl();
-      await fetch(`${url}/simulator/attacks/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: backendStatus })
-      });
+      if (isBackendSwapId) {
+        // Sync customer swap requests
+        const token = useAuth.getState().user?.token;
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        if (status === "approved") {
+          await fetch(`${url}/swap-requests/${id}/approve`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ notes: "Manual approval from console" }),
+          });
+        } else if (status === "rejected" || status === "blocked") {
+          const reason = status === "blocked" 
+            ? "Request blocked by Sim Lock security rules and parameters."
+            : "Request rejected by operator manual review console override.";
+          await fetch(`${url}/swap-requests/${id}/reject`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ reason }),
+          });
+        }
+      } else {
+        // Sync simulator attacks
+        let backendStatus = "started";
+        if (status === "approved") backendStatus = "succeeded";
+        else if (status === "rejected") backendStatus = "rejected";
+        else if (status === "blocked") backendStatus = "blocked";
+        else if (status === "under-review") backendStatus = "waiting";
+
+        await fetch(`${url}/simulator/attacks/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: backendStatus })
+        });
+      }
     } catch (e) {
       console.warn("Could not sync request status to backend database:", e);
     }

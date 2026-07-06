@@ -61,9 +61,9 @@ export const MOCK_AGENT: Omit<MockUser, "token"> = {
   password: "password123",
 };
 
-function generateMockJwt(role: Role, userId: string) {
+function generateMockJwt(role: Role, userId: string, email?: string) {
   const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-  const payload = btoa(JSON.stringify({ role, userId, iat: Date.now(), exp: Date.now() + 86400000 }));
+  const payload = btoa(JSON.stringify({ role, userId, email, iat: Date.now(), exp: Date.now() + 86400000 }));
   return `${header}.${payload}.simshield-mock-signature`;
 }
 
@@ -91,7 +91,7 @@ export const useAuth = create<AuthState>()(
       
       loginAs: (role) => {
         if (role === "telecom-agent") {
-          const user: MockUser = { ...MOCK_AGENT, token: generateMockJwt(role, MOCK_AGENT.id) };
+          const user: MockUser = { ...MOCK_AGENT, token: generateMockJwt(role, MOCK_AGENT.id, MOCK_AGENT.email) };
           set({ user });
           return user;
         }
@@ -112,7 +112,7 @@ export const useAuth = create<AuthState>()(
             }
           }
         }
-        const user: MockUser = { ...activeProfile, token: generateMockJwt(profile.role, profile.id) };
+        const user: MockUser = { ...activeProfile, token: generateMockJwt(profile.role, profile.id, activeProfile.email) };
         set({ user });
         return user;
       },
