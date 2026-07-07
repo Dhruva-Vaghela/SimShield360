@@ -17,12 +17,9 @@ const createAdminUser = async () => {
       process.exit(0);
     }
 
-    // Create admin user
-    const passwordHash = await PasswordHasher.hashPassword(process.env.ADMIN_PASSWORD || 'Admin123!');
-
     const admin = await User.create({
       email: 'admin@simshield360.com',
-      passwordHash,
+      passwordHash: process.env.ADMIN_PASSWORD || 'Admin123!',
       role: 'admin',
       profile: {
         firstName: 'Admin',

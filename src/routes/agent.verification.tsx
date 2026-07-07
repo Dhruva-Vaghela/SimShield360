@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRequests, useTimeline, useWorkflow } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
+import { getBackendUrl } from "@/lib/api";
 import { WorkflowVisualization } from "@/components/WorkflowVisualization";
 import { RiskGauge } from "@/components/RiskGauge";
 import { Shield, MapPin, Smartphone, History, AlertTriangle, Play, RotateCcw, CheckCircle2, XCircle, ShieldAlert, BrainCircuit } from "lucide-react";
@@ -59,6 +61,65 @@ function VerificationCenter() {
       }
     }
   }, [reqId, requests]);
+
+  // Fetch real database workflow layers if the request is a backend swap request (24-char hex ID)
+  useEffect(() => {
+    if (!selected?.id) return;
+    
+    const isBackendSwapId = /^[0-9a-fA-F]{24}$/.test(selected.id);
+    if (!isBackendSwapId) return;
+
+    const fetchWorkflowStatus = async () => {
+      try {
+        const url = getBackendUrl();
+        const token = useAuth.getState().user?.token;
+        const headers: HeadersInit = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const res = await fetch(`${url}/swap-requests/${selected.id}/workflow`, { headers });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const data = json.data;
+            reset();
+            
+            // Map layerResults array to visualizer
+            const layerKeyMap: Record<number, string> = {
+              1: "sim-lock",
+              2: "face",
+              3: "auth",
+              4: "device",
+              5: "telecom",
+              6: "risk",
+              7: "final"
+            };
+
+            (data.layerResults || []).forEach((lr: any) => {
+              const key = layerKeyMap[lr.layer];
+              if (key) {
+                let state: "success" | "failed" | "blocked" = lr.passed ? "success" : "failed";
+                if (!lr.passed && lr.layer === 1) {
+                  state = "blocked";
+                }
+                setLayer(key, state);
+              }
+            });
+
+            // Set final decision
+            if (data.finalDecision) {
+              setDecision(data.finalDecision);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch live workflow status from backend:", err);
+      }
+    };
+
+    fetchWorkflowStatus();
+  }, [selected?.id]);
 
   const runScenario = async (key: ScenarioKey) => {
     reset();

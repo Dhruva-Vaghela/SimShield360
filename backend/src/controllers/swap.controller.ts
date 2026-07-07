@@ -34,7 +34,7 @@ export const createSwapRequest = async (
     });
 
     if (!result.success) {
-      response.internalError(res, result.errorMessage);
+      response.conflict(res, result.errorMessage || 'Failed to create swap request');
       return;
     }
 

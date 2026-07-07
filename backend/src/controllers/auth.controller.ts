@@ -29,13 +29,10 @@ export const register = async (req: Request, res: Response, next: NextFunction):
       return;
     }
 
-    // Hash password
-    const passwordHash = await PasswordHasher.hashPassword(password);
-
     // Create user
     const result = await userService.createUser({
       email,
-      password: passwordHash,
+      password,
       role: role || 'customer',
       profile,
     });

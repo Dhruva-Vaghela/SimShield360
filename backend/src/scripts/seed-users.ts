@@ -82,12 +82,9 @@ const seedUsers = async () => {
         continue;
       }
 
-      // Hash password directly (bypasses complexity checks for default profiles)
-      const passwordHash = await PasswordHasher.hashPassword(u.password);
-
       await User.create({
         email: u.email,
-        passwordHash,
+        passwordHash: u.password,
         role: u.role,
         profile: u.profile,
         authenticator: u.authenticator,
